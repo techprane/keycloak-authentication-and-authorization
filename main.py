@@ -26,10 +26,18 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
 # FastAPI app
 app = FastAPI()
 
+
 # Models
 class TokenData(BaseModel):
     username: str
     roles: List[str]
+    
+# Item model
+class Item(BaseModel):
+    name: str
+    description: str
+    price: float
+
 
 # Token validation function
 async def validate_token(token: str) -> TokenData:
@@ -101,11 +109,50 @@ async def protected_endpoint(current_user: TokenData = Depends(get_current_user)
         "roles": current_user.roles,
     }
 
-@app.get("/admin")
-async def admin_endpoint(current_user: TokenData = Depends(has_role("admin"))):
-    return {
-        "message": f"Hello {current_user.username}, you have admin access!"
-    }
+# In-memory database for demo purposes
+items_db = {}
+
+# Create an item (Admin only)
+@app.post("/admin/items", dependencies=[Depends(has_role("admin"))])
+async def create_item(item: Item):
+    if item.name in items_db:
+        raise HTTPException(status_code=400, detail="Item already exists")
+    items_db[item.name] = item
+    return {"message": f"Item '{item.name}' created successfully", "item": item}
+
+# Read all items (Admin only)
+@app.get("/admin/items", dependencies=[Depends(has_role("admin"))])
+async def get_all_items():
+    return {"items": list(items_db.values())}
+
+# Read a single item by name (Admin only)
+@app.get("/admin/items/{item_name}", dependencies=[Depends(has_role("admin"))])
+async def get_item(item_name: str):
+    item = items_db.get(item_name)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return item
+
+# Update an item by name (Admin only)
+@app.put("/admin/items/{item_name}", dependencies=[Depends(has_role("admin"))])
+async def update_item(item_name: str, updated_item: Item):
+    if item_name not in items_db:
+        raise HTTPException(status_code=404, detail="Item not found")
+    items_db[item_name] = updated_item
+    return {"message": f"Item '{item_name}' updated successfully", "item": updated_item}
+
+# Delete an item by name (Admin only)
+@app.delete("/admin/items/{item_name}", dependencies=[Depends(has_role("admin"))])
+async def delete_item(item_name: str):
+    if item_name not in items_db:
+        raise HTTPException(status_code=404, detail="Item not found")
+    del items_db[item_name]
+    return {"message": f"Item '{item_name}' deleted successfully"}
+# @app.get("/admin")
+# async def admin_endpoint(current_user: TokenData = Depends(has_role("admin"))):
+#     return {
+#         "message": f"Hello {current_user.username}, you have admin access!"
+#     }
 
 @app.get("/developer")
 async def developer_endpoint(current_user: TokenData = Depends(has_role("developer"))):
