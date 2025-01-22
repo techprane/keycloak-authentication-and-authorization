@@ -154,8 +154,12 @@ async def delete_item(item_name: str):
 #         "message": f"Hello {current_user.username}, you have admin access!"
 #     }
 
-@app.get("/developer")
-async def developer_endpoint(current_user: TokenData = Depends(has_role("developer"))):
-    return {
-        "message": f"Hello {current_user.username}, you have developer read-only access!"
-    }
+@app.get("/developer", dependencies=[Depends(has_role("developer"))])
+async def developer_endpoint():
+    return {"items":list(items_db.values())}
+
+
+# async def developer_endpoint(current_user: TokenData = Depends(has_role("developer"))):
+#     return {
+#         "message": f"Hello {current_user.username}, you have developer read-only access!"
+#     }
